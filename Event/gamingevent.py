@@ -1,5 +1,6 @@
 import discord
-from redbot.core import commands, app_commands
+from redbot.core import commands
+from discord import app_commands
 from discord.ui import View, Button, Select, Modal, TextInput
 from discord import ButtonStyle, TextStyle, ChannelType
 
@@ -462,9 +463,9 @@ class GamingEvent(commands.Cog):
         self.games: list = list(DEFAULT_GAMES)
         self.challenges: list = [dict(c) for c in DEFAULT_CHALLENGES]
 
-    @app_commands.command(name="challenge", description="🎯 Zufällige Challenge für die Runde")
+    @commands.hybrid_command(name="challenge", description="🎯 Zufällige Challenge für die Runde")
     @app_commands.describe(kanal="Zielkanal (optional)")
-    @app_commands.guild_only()
+    @commands.guild_only()
     async def challenge(self, interaction: discord.Interaction, kanal: discord.TextChannel = None):
         if not self.challenges:
             return await interaction.response.send_message("❌ Keine Challenges in der Liste!", ephemeral=True)
@@ -477,15 +478,15 @@ class GamingEvent(commands.Cog):
             return await interaction.response.send_message(f"✅ Challenge in {target.mention} gepostet!", ephemeral=True)
         await interaction.response.send_message(embeds=[embed])
 
-    @app_commands.command(name="challenge_list", description="📋 Alle Challenges anzeigen & verwalten")
-    @app_commands.guild_only()
+    @commands.hybrid_command(name="challenge_list", description="📋 Alle Challenges anzeigen & verwalten")
+    @commands.guild_only()
     async def challenge_list(self, interaction: discord.Interaction):
         embed, view = build_challenge_list_message(self, 0)
         await interaction.response.send_message(embeds=[embed], view=view, ephemeral=True)
 
-    @app_commands.command(name="randomgame", description="🎮 Zufälliges Spiel auswählen")
+    @commands.hybrid_command(name="randomgame", description="🎮 Zufälliges Spiel auswählen")
     @app_commands.describe(kanal="Zielkanal (optional)")
-    @app_commands.guild_only()
+    @commands.guild_only()
     async def randomgame(self, interaction: discord.Interaction, kanal: discord.TextChannel = None):
         if not self.games:
             return await interaction.response.send_message(
@@ -500,18 +501,18 @@ class GamingEvent(commands.Cog):
             return await interaction.response.send_message(f"✅ Spiel in {target.mention} gepostet!", ephemeral=True)
         await interaction.response.send_message(embeds=[embed])
 
-    @app_commands.command(name="game_list", description="🕹️ Spiele-Liste anzeigen & verwalten")
-    @app_commands.guild_only()
+    @commands.hybrid_command(name="game_list", description="🕹️ Spiele-Liste anzeigen & verwalten")
+    @commands.guild_only()
     async def game_list(self, interaction: discord.Interaction):
         embed, view = build_game_list_message(self, 0)
         await interaction.response.send_message(embeds=[embed], view=view, ephemeral=True)
 
-    @app_commands.command(name="umfrage", description="📅 Verfügbarkeits-Umfrage erstellen")
+    @commands.hybrid_command(name="umfrage", description="📅 Verfügbarkeits-Umfrage erstellen")
     @app_commands.describe(
         frage="z.B. Wer ist Freitag 20 Uhr dabei?",
         kanal="Zielkanal (optional)",
     )
-    @app_commands.guild_only()
+    @commands.guild_only()
     async def umfrage(self, interaction: discord.Interaction, frage: str, kanal: discord.TextChannel = None):
         target = kanal or interaction.channel
         embed = build_poll_embed(frage, interaction.user)
@@ -523,12 +524,12 @@ class GamingEvent(commands.Cog):
             return await interaction.response.send_message(f"✅ Umfrage in {target.mention} erstellt!", ephemeral=True)
         await interaction.response.send_message("✅ Umfrage erstellt!", ephemeral=True)
 
-    @app_commands.command(name="event_start", description="🚀 Event starten und alle pingen")
+    @commands.hybrid_command(name="event_start", description="🚀 Event starten und alle pingen")
     @app_commands.describe(
         titel="Event-Name (optional)",
         kanal="Zielkanal (optional)",
     )
-    @app_commands.guild_only()
+    @commands.guild_only()
     async def event_start(self, interaction: discord.Interaction, titel: str = None, kanal: discord.TextChannel = None):
         target = kanal or interaction.channel
         embed = build_event_embed(titel, interaction.user, self.games, self.challenges)
