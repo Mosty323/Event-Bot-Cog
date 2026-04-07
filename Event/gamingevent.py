@@ -1,8 +1,10 @@
+import random
+import asyncio
 import discord
 from redbot.core import commands
 from discord import app_commands
 from discord.ui import View, Button, Select, Modal, TextInput
-from discord import ButtonStyle, TextStyle, ChannelType
+from discord import ButtonStyle, TextStyle
 
 
 COLORS = {
@@ -104,6 +106,8 @@ def build_poll_embed(frage: str, user: discord.User) -> discord.Embed:
     return embed
 
 
+# ── Modals ────────────────────────────────────────────────────────────────────
+
 class GameAddModal(Modal, title="🕹️  Spiel hinzufügen"):
     game_name = TextInput(
         label="Name des Spiels",
@@ -122,14 +126,14 @@ class GameAddModal(Modal, title="🕹️  Spiel hinzufügen"):
         if any(g.lower() == name.lower() for g in self.cog.games):
             embed = discord.Embed(color=COLORS["red"], title="❌  Bereits vorhanden")
             embed.description = f"**{name}** ist schon in der Liste!"
-            return await interaction.response.send_message(embeds=[embed], ephemeral=True)
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
         self.cog.games.append(name)
         embed = discord.Embed(color=COLORS["green"])
         embed.set_author(name="✅  Spiel hinzugefügt")
         embed.title = name
         embed.description = "Wurde erfolgreich zur Spiele-Liste hinzugefügt."
         embed.set_footer(text=f"{len(self.cog.games)} Spiele insgesamt")
-        await interaction.response.send_message(embeds=[embed], ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 class ChallengeAddModal(Modal, title="🎯  Challenge hinzufügen"):
@@ -170,8 +174,10 @@ class ChallengeAddModal(Modal, title="🎯  Challenge hinzufügen"):
             value=f"{diff_emoji(diff['label'])}  {diff['difficulty']}  **{diff['label']}**",
         )
         embed.set_footer(text=f"{len(self.cog.challenges)} Challenges insgesamt")
-        await interaction.response.send_message(embeds=[embed], ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
+
+# ── Views ─────────────────────────────────────────────────────────────────────
 
 class GameListView(View):
     def __init__(self, cog_ref, page: int = 0):
@@ -185,25 +191,25 @@ class GameListView(View):
         page_size = 10
         total_pages = max(1, -(-len(self.cog.games) // page_size))
 
-        add_btn = Button(label="Spiel hinzufügen", emoji="➕", style=ButtonStyle.success, custom_id="game_add_btn")
+        add_btn = Button(label="Spiel hinzufügen", emoji="➕", style=ButtonStyle.success)
         add_btn.callback = self.add_callback
         self.add_item(add_btn)
 
         rem_btn = Button(
             label="Spiel entfernen", emoji="🗑️", style=ButtonStyle.danger,
-            custom_id=f"game_remove_page_{self.page}", disabled=len(self.cog.games) == 0,
+            disabled=len(self.cog.games) == 0,
         )
         rem_btn.callback = self.remove_callback
         self.add_item(rem_btn)
 
         if total_pages > 1:
             prev_btn = Button(label="Zurück", emoji="◀️", style=ButtonStyle.secondary,
-                              custom_id=f"game_page_{self.page - 1}", disabled=self.page == 0)
+                              disabled=self.page == 0)
             prev_btn.callback = self.prev_callback
             self.add_item(prev_btn)
 
             next_btn = Button(label="Weiter", emoji="▶️", style=ButtonStyle.secondary,
-                              custom_id=f"game_page_{self.page + 1}", disabled=self.page >= total_pages - 1)
+                              disabled=self.page >= total_pages - 1)
             next_btn.callback = self.next_callback
             self.add_item(next_btn)
 
@@ -214,19 +220,19 @@ class GameListView(View):
         view, embed = build_game_remove_view(self.cog, self.page)
         if view is None:
             return await interaction.response.send_message("❌ Keine Spiele zum Entfernen.", ephemeral=True)
-        await interaction.response.edit_message(embeds=[embed], view=view)
+        await interaction.response.edit_message(embed=embed, view=view)
 
     async def prev_callback(self, interaction: discord.Interaction):
-        new_page = max(0, self.page - 1)
-        embed, view = build_game_list_message(self.cog, new_page)
-        await interaction.response.edit_message(embeds=[embed], view=view)
+        self.page = max(0, self.page - 1)
+        embed, view = build_game_list_message(self.cog, self.page)
+        await interaction.response.edit_message(embed=embed, view=view)
 
     async def next_callback(self, interaction: discord.Interaction):
         page_size = 10
         total_pages = max(1, -(-len(self.cog.games) // page_size))
-        new_page = min(total_pages - 1, self.page + 1)
-        embed, view = build_game_list_message(self.cog, new_page)
-        await interaction.response.edit_message(embeds=[embed], view=view)
+        self.page = min(total_pages - 1, self.page + 1)
+        embed, view = build_game_list_message(self.cog, self.page)
+        await interaction.response.edit_message(embed=embed, view=view)
 
 
 class GameRemoveView(View):
@@ -248,13 +254,11 @@ class GameRemoveView(View):
             for i, g in enumerate(slice_)
         ]
 
-        select = Select(placeholder="Welches Spiel soll entfernt werden?", options=options,
-                        custom_id="game_remove_select")
+        select = Select(placeholder="Welches Spiel soll entfernt werden?", options=options)
         select.callback = self.select_callback
         self.add_item(select)
 
-        cancel_btn = Button(label="Abbrechen", emoji="✖️", style=ButtonStyle.secondary,
-                            custom_id="game_remove_cancel")
+        cancel_btn = Button(label="Abbrechen", emoji="✖️", style=ButtonStyle.secondary)
         cancel_btn.callback = self.cancel_callback
         self.add_item(cancel_btn)
 
@@ -265,15 +269,14 @@ class GameRemoveView(View):
         embed.set_author(name="✅  Spiel entfernt")
         embed.title = f'"{removed}" wurde aus der Liste entfernt.'
         embed.set_footer(text=f"{len(self.cog.games)} Spiele verbleiben")
-        await interaction.response.edit_message(embeds=[embed], view=None)
-        import asyncio
+        await interaction.response.edit_message(embed=embed, view=None)
         await asyncio.sleep(1.5)
         list_embed, list_view = build_game_list_message(self.cog, 0)
-        await interaction.edit_original_response(embeds=[list_embed], view=list_view)
+        await interaction.edit_original_response(embed=list_embed, view=list_view)
 
     async def cancel_callback(self, interaction: discord.Interaction):
         embed, view = build_game_list_message(self.cog, 0)
-        await interaction.response.edit_message(embeds=[embed], view=view)
+        await interaction.response.edit_message(embed=embed, view=view)
 
 
 class ChallengeListView(View):
@@ -288,26 +291,24 @@ class ChallengeListView(View):
         page_size = 7
         total_pages = max(1, -(-len(self.cog.challenges) // page_size))
 
-        add_btn = Button(label="Challenge hinzufügen", emoji="➕", style=ButtonStyle.success,
-                         custom_id="challenge_add_btn")
+        add_btn = Button(label="Challenge hinzufügen", emoji="➕", style=ButtonStyle.success)
         add_btn.callback = self.add_callback
         self.add_item(add_btn)
 
         rem_btn = Button(
             label="Challenge entfernen", emoji="🗑️", style=ButtonStyle.danger,
-            custom_id=f"challenge_remove_page_{self.page}", disabled=len(self.cog.challenges) == 0,
+            disabled=len(self.cog.challenges) == 0,
         )
         rem_btn.callback = self.remove_callback
         self.add_item(rem_btn)
 
         if total_pages > 1:
             prev_btn = Button(label="Zurück", emoji="◀️", style=ButtonStyle.secondary,
-                              custom_id=f"challenge_page_{self.page - 1}", disabled=self.page == 0)
+                              disabled=self.page == 0)
             prev_btn.callback = self.prev_callback
             self.add_item(prev_btn)
 
             next_btn = Button(label="Weiter", emoji="▶️", style=ButtonStyle.secondary,
-                              custom_id=f"challenge_page_{self.page + 1}",
                               disabled=self.page >= total_pages - 1)
             next_btn.callback = self.next_callback
             self.add_item(next_btn)
@@ -319,19 +320,19 @@ class ChallengeListView(View):
         view, embed = build_challenge_remove_view(self.cog, self.page)
         if view is None:
             return await interaction.response.send_message("❌ Keine Challenges zum Entfernen.", ephemeral=True)
-        await interaction.response.edit_message(embeds=[embed], view=view)
+        await interaction.response.edit_message(embed=embed, view=view)
 
     async def prev_callback(self, interaction: discord.Interaction):
-        new_page = max(0, self.page - 1)
-        embed, view = build_challenge_list_message(self.cog, new_page)
-        await interaction.response.edit_message(embeds=[embed], view=view)
+        self.page = max(0, self.page - 1)
+        embed, view = build_challenge_list_message(self.cog, self.page)
+        await interaction.response.edit_message(embed=embed, view=view)
 
     async def next_callback(self, interaction: discord.Interaction):
         page_size = 7
         total_pages = max(1, -(-len(self.cog.challenges) // page_size))
-        new_page = min(total_pages - 1, self.page + 1)
-        embed, view = build_challenge_list_message(self.cog, new_page)
-        await interaction.response.edit_message(embeds=[embed], view=view)
+        self.page = min(total_pages - 1, self.page + 1)
+        embed, view = build_challenge_list_message(self.cog, self.page)
+        await interaction.response.edit_message(embed=embed, view=view)
 
 
 class ChallengeRemoveView(View):
@@ -354,13 +355,11 @@ class ChallengeRemoveView(View):
             for i, c in enumerate(slice_)
         ]
 
-        select = Select(placeholder="Welche Challenge soll entfernt werden?", options=options,
-                        custom_id="challenge_remove_select")
+        select = Select(placeholder="Welche Challenge soll entfernt werden?", options=options)
         select.callback = self.select_callback
         self.add_item(select)
 
-        cancel_btn = Button(label="Abbrechen", emoji="✖️", style=ButtonStyle.secondary,
-                            custom_id="challenge_remove_cancel")
+        cancel_btn = Button(label="Abbrechen", emoji="✖️", style=ButtonStyle.secondary)
         cancel_btn.callback = self.cancel_callback
         self.add_item(cancel_btn)
 
@@ -372,16 +371,17 @@ class ChallengeRemoveView(View):
         embed.title = f"Challenge #{index + 1} wurde entfernt."
         embed.description = f"~~{removed['text']}~~"
         embed.set_footer(text=f"{len(self.cog.challenges)} Challenges verbleiben")
-        await interaction.response.edit_message(embeds=[embed], view=None)
-        import asyncio
+        await interaction.response.edit_message(embed=embed, view=None)
         await asyncio.sleep(1.5)
         list_embed, list_view = build_challenge_list_message(self.cog, 0)
-        await interaction.edit_original_response(embeds=[list_embed], view=list_view)
+        await interaction.edit_original_response(embed=list_embed, view=list_view)
 
     async def cancel_callback(self, interaction: discord.Interaction):
         embed, view = build_challenge_list_message(self.cog, 0)
-        await interaction.response.edit_message(embeds=[embed], view=view)
+        await interaction.response.edit_message(embed=embed, view=view)
 
+
+# ── Builder helpers ───────────────────────────────────────────────────────────
 
 def build_game_list_message(cog, page: int = 0):
     page_size = 10
@@ -402,9 +402,7 @@ def build_game_list_message(cog, page: int = 0):
     else:
         embed.description = "*Noch keine Spiele. Füge welche über den Button hinzu!*"
     embed.set_footer(text=f"Seite {page + 1} / {total_pages}  •  {len(cog.games)} Spiele gesamt")
-
-    view = GameListView(cog, page)
-    return embed, view
+    return embed, GameListView(cog, page)
 
 
 def build_challenge_list_message(cog, page: int = 0):
@@ -426,36 +424,32 @@ def build_challenge_list_message(cog, page: int = 0):
     else:
         embed.description = "*Noch keine Challenges. Füge welche über den Button hinzu!*"
     embed.set_footer(text=f"Seite {page + 1} / {total_pages}  •  {len(cog.challenges)} Challenges gesamt")
-
-    view = ChallengeListView(cog, page)
-    return embed, view
+    return embed, ChallengeListView(cog, page)
 
 
 def build_game_remove_view(cog, page: int = 0):
     page_size = 10
     start = page * page_size
-    slice_ = cog.games[start:start + page_size]
-    if not slice_:
+    if not cog.games[start:start + page_size]:
         return None, None
     embed = discord.Embed(color=COLORS["red"])
     embed.set_author(name="🗑️  Spiel entfernen")
     embed.title = "Wähle das Spiel aus das du entfernen möchtest."
-    view = GameRemoveView(cog, page)
-    return view, embed
+    return GameRemoveView(cog, page), embed
 
 
 def build_challenge_remove_view(cog, page: int = 0):
     page_size = 7
     start = page * page_size
-    slice_ = cog.challenges[start:start + page_size]
-    if not slice_:
+    if not cog.challenges[start:start + page_size]:
         return None, None
     embed = discord.Embed(color=COLORS["red"])
     embed.set_author(name="🗑️  Challenge entfernen")
     embed.title = "Wähle die Challenge aus die du entfernen möchtest."
-    view = ChallengeRemoveView(cog, page)
-    return view, embed
+    return ChallengeRemoveView(cog, page), embed
 
+
+# ── Cog ───────────────────────────────────────────────────────────────────────
 
 class GamingEvent(commands.Cog):
     def __init__(self, bot):
@@ -466,46 +460,44 @@ class GamingEvent(commands.Cog):
     @commands.hybrid_command(name="challenge", description="🎯 Zufällige Challenge für die Runde")
     @app_commands.describe(kanal="Zielkanal (optional)")
     @commands.guild_only()
-    async def challenge(self, interaction: discord.Interaction, kanal: discord.TextChannel = None):
+    async def challenge(self, ctx: commands.Context, kanal: discord.TextChannel = None):
         if not self.challenges:
-            return await interaction.response.send_message("❌ Keine Challenges in der Liste!", ephemeral=True)
-        import random
+            return await ctx.send("❌ Keine Challenges in der Liste!", ephemeral=True)
         c = random.choice(self.challenges)
         embed = build_challenge_embed(c)
-        target = kanal or interaction.channel
-        if kanal and kanal.id != interaction.channel_id:
-            await target.send(embeds=[embed])
-            return await interaction.response.send_message(f"✅ Challenge in {target.mention} gepostet!", ephemeral=True)
-        await interaction.response.send_message(embeds=[embed])
+        target = kanal or ctx.channel
+        if kanal and kanal.id != ctx.channel.id:
+            await target.send(embed=embed)
+            return await ctx.send(f"✅ Challenge in {target.mention} gepostet!", ephemeral=True)
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="challenge_list", description="📋 Alle Challenges anzeigen & verwalten")
     @commands.guild_only()
-    async def challenge_list(self, interaction: discord.Interaction):
+    async def challenge_list(self, ctx: commands.Context):
         embed, view = build_challenge_list_message(self, 0)
-        await interaction.response.send_message(embeds=[embed], view=view, ephemeral=True)
+        await ctx.send(embed=embed, view=view, ephemeral=True)
 
     @commands.hybrid_command(name="randomgame", description="🎮 Zufälliges Spiel auswählen")
     @app_commands.describe(kanal="Zielkanal (optional)")
     @commands.guild_only()
-    async def randomgame(self, interaction: discord.Interaction, kanal: discord.TextChannel = None):
+    async def randomgame(self, ctx: commands.Context, kanal: discord.TextChannel = None):
         if not self.games:
-            return await interaction.response.send_message(
+            return await ctx.send(
                 "❌ Keine Spiele in der Liste! Nutze `/game_list` um welche hinzuzufügen.", ephemeral=True
             )
-        import random
         game = random.choice(self.games)
         embed = build_random_game_embed(game, self.games)
-        target = kanal or interaction.channel
-        if kanal and kanal.id != interaction.channel_id:
-            await target.send(embeds=[embed])
-            return await interaction.response.send_message(f"✅ Spiel in {target.mention} gepostet!", ephemeral=True)
-        await interaction.response.send_message(embeds=[embed])
+        target = kanal or ctx.channel
+        if kanal and kanal.id != ctx.channel.id:
+            await target.send(embed=embed)
+            return await ctx.send(f"✅ Spiel in {target.mention} gepostet!", ephemeral=True)
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="game_list", description="🕹️ Spiele-Liste anzeigen & verwalten")
     @commands.guild_only()
-    async def game_list(self, interaction: discord.Interaction):
+    async def game_list(self, ctx: commands.Context):
         embed, view = build_game_list_message(self, 0)
-        await interaction.response.send_message(embeds=[embed], view=view, ephemeral=True)
+        await ctx.send(embed=embed, view=view, ephemeral=True)
 
     @commands.hybrid_command(name="umfrage", description="📅 Verfügbarkeits-Umfrage erstellen")
     @app_commands.describe(
@@ -513,16 +505,16 @@ class GamingEvent(commands.Cog):
         kanal="Zielkanal (optional)",
     )
     @commands.guild_only()
-    async def umfrage(self, interaction: discord.Interaction, frage: str, kanal: discord.TextChannel = None):
-        target = kanal or interaction.channel
-        embed = build_poll_embed(frage, interaction.user)
-        msg = await target.send(embeds=[embed])
+    async def umfrage(self, ctx: commands.Context, frage: str, kanal: discord.TextChannel = None):
+        target = kanal or ctx.channel
+        embed = build_poll_embed(frage, ctx.author)
+        msg = await target.send(embed=embed)
         await msg.add_reaction("✅")
         await msg.add_reaction("❌")
         await msg.add_reaction("❓")
-        if kanal and kanal.id != interaction.channel_id:
-            return await interaction.response.send_message(f"✅ Umfrage in {target.mention} erstellt!", ephemeral=True)
-        await interaction.response.send_message("✅ Umfrage erstellt!", ephemeral=True)
+        if kanal and kanal.id != ctx.channel.id:
+            return await ctx.send(f"✅ Umfrage in {target.mention} erstellt!", ephemeral=True)
+        await ctx.send("✅ Umfrage erstellt!", ephemeral=True)
 
     @commands.hybrid_command(name="event_start", description="🚀 Event starten und alle pingen")
     @app_commands.describe(
@@ -530,10 +522,10 @@ class GamingEvent(commands.Cog):
         kanal="Zielkanal (optional)",
     )
     @commands.guild_only()
-    async def event_start(self, interaction: discord.Interaction, titel: str = None, kanal: discord.TextChannel = None):
-        target = kanal or interaction.channel
-        embed = build_event_embed(titel, interaction.user, self.games, self.challenges)
-        await target.send(content="@everyone", embeds=[embed])
-        if kanal and kanal.id != interaction.channel_id:
-            return await interaction.response.send_message(f"✅ Event in {target.mention} gestartet!", ephemeral=True)
-        await interaction.response.send_message("✅ Event gestartet!", ephemeral=True)
+    async def event_start(self, ctx: commands.Context, titel: str = None, kanal: discord.TextChannel = None):
+        target = kanal or ctx.channel
+        embed = build_event_embed(titel, ctx.author, self.games, self.challenges)
+        await target.send(content="@everyone", embed=embed)
+        if kanal and kanal.id != ctx.channel.id:
+            return await ctx.send(f"✅ Event in {target.mention} gestartet!", ephemeral=True)
+        await ctx.send("✅ Event gestartet!", ephemeral=True)
