@@ -1,0 +1,15 @@
+{
+    "name": "GamingEvent",
+    "short": "Gaming Event Bot als Red-Cog",
+    "description": "Zufällige Challenges, Spiele-Auswahl, Umfragen und Event-Starts für Gaming-Abende.",
+    "tags": ["gaming", "event", "fun", "challenge"],
+    "author": ["Mosty"],
+    "install_msg": "GamingEvent Cog geladen! Nutze [p]slash enable GamingEvent und dann [p]slash sync.",
+    "required_cogs": {},
+    "requirements": [],
+    "hidden": false,
+    "disabled": false,
+    "min_bot_version": "3.5.0",
+    "max_bot_version": null,
+    "min_python_version": [3, 8, 0]
+}
